@@ -14,7 +14,6 @@ import {
   updateEvent,
   getEvents,
   getEventStats,
-    getEventByEventId,
   upsertCampaignSpend,
   getAllCampaignSpend
 } from './lib/database.js';
@@ -238,7 +237,32 @@ async function writeCampaignSpend(spendData) {
 async function readLandings() {
     try {
         const data = await fs.readFile(LANDINGS_FILE, 'utf-8');
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+
+        // Si por alguna razón el archivo contiene un array (por versiones antiguas), convertirlo
+        if (Array.isArray(parsed)) {
+            // Si está vacío, devolver estructura por defecto
+            if (parsed.length === 0) {
+                return { default: { id: 'default', name: 'Default Landing', pixelId: FACEBOOK_PIXEL_ID, accessToken: FACEBOOK_ACCESS_TOKEN, active: true } };
+            }
+            // Si es un array de landings con campo 'id', convertir a map { id: landing }
+            const obj = {};
+            parsed.forEach(item => {
+                if (item && item.id) obj[item.id] = item;
+            });
+            // Si no pudimos mapear ninguno, devolver default
+            if (Object.keys(obj).length === 0) {
+                return { default: { id: 'default', name: 'Default Landing', pixelId: FACEBOOK_PIXEL_ID, accessToken: FACEBOOK_ACCESS_TOKEN, active: true } };
+            }
+            return obj;
+        }
+
+        // Si no es objeto, devolver default
+        if (!parsed || typeof parsed !== 'object') {
+            return { default: { id: 'default', name: 'Default Landing', pixelId: FACEBOOK_PIXEL_ID, accessToken: FACEBOOK_ACCESS_TOKEN, active: true } };
+        }
+
+        return parsed;
     } catch (error) {
         console.error('Error leyendo landings:', error);
         return { default: { id: 'default', name: 'Default Landing', pixelId: FACEBOOK_PIXEL_ID, accessToken: FACEBOOK_ACCESS_TOKEN, active: true } };
@@ -262,7 +286,23 @@ async function getLandingCredentials(landingId) {
 
 async function writeLandings(landings) {
     try {
-        await fs.writeFile(LANDINGS_FILE, JSON.stringify(landings, null, 2));
+        // Asegurar que escribimos un objeto mapeado por id.
+        let toWrite = landings;
+        if (Array.isArray(landings)) {
+            const obj = {};
+            landings.forEach(item => {
+                if (item && item.id) obj[item.id] = item;
+            });
+            toWrite = obj;
+        }
+
+        // Si accidentalmente se pasó algo que no es objeto, reemplazar por default
+        if (!toWrite || typeof toWrite !== 'object') {
+            toWrite = { default: { id: 'default', name: 'Default Landing', pixelId: FACEBOOK_PIXEL_ID, accessToken: FACEBOOK_ACCESS_TOKEN, active: true } };
+        }
+
+        await fs.writeFile(LANDINGS_FILE, JSON.stringify(toWrite, null, 2));
+        console.log(`✅ Landings guardadas en ${LANDINGS_FILE} (size: ${JSON.stringify(toWrite).length} bytes)`);
         return true;
     } catch (error) {
         console.error('Error escribiendo landings:', error);
@@ -736,53 +776,29 @@ function getClientIP(req) {
 
 // Endpoint para recibir tracking desde la landing
 app.post('/api/track', async (req, res) => {
-    try {
-        const {
-            event_id,
-            event_type,
-            timestamp,
-            user_agent,
-            referrer,
-            attribution,
-            landing_id = 'default',
-            purchase_value,
-            purchase_currency
-        } = req.body;
+  try {
+    const {
+      event_id,
+      event_type,
+      timestamp,
+      user_agent,
+      referrer,
+      attribution,
+      landing_id = 'default',
+      purchase_value,
+      purchase_currency
+    } = req.body;
 
-        // --- NUEVO: normalizar attribution ---
-        function pick(obj, ...keys) {
-            for (const k of keys) if (obj && obj[k]) return obj[k];
-            return null;
-        }
-
-        let fbclidFromReferrer = null;
-        try {
-            if (referrer && referrer.includes('?')) {
-                const qs = new URLSearchParams(referrer.split('?')[1]);
-                fbclidFromReferrer = qs.get('fbclid');
-            }
-        } catch {}
-
-        const normalizedAttribution = {
-            ...(attribution || {}),
-            // preferimos ID de campaña si llega con cualquiera de estos nombres
-            campaign_id: pick(attribution, 'campaign_id', 'fb_campaign_id', 'utm_campaign_id'),
-            // conservamos el nombre si viene
-            utm_campaign: pick(attribution, 'utm_campaign', 'campaign') || (attribution?.utm_campaign ?? null),
-            // garantizamos fbclid
-            fbclid: pick(attribution, 'fbclid') || fbclidFromReferrer
-        };
-
-        const base = {
-            event_id,
-            event_type,
-            created_at: timestamp ? new Date(timestamp).toISOString() : new Date().toISOString(),
-            user_agent,
-            referrer,
-            client_ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
-            attribution: normalizedAttribution, // <-- usar la attribution normalizada
-            landing_id
-        };
+    const base = {
+      event_id,
+      event_type,
+      created_at: timestamp ? new Date(timestamp).toISOString() : new Date().toISOString(),
+      user_agent,
+      referrer,
+      client_ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
+      attribution,
+      landing_id
+    };
 
     // banderas según tipo
     if (event_type === 'whatsapp_click') {
@@ -806,20 +822,6 @@ app.post('/api/track', async (req, res) => {
     console.error('❌ track error', e);
     return res.status(500).json({ ok: false, error: e.message });
   }
-});
-
-// Debug: obtener evento por event_id (solo en entornos de desarrollo)
-app.get('/api/debug/event/:eventId', async (req, res) => {
-    try {
-        const eventId = req.params.eventId;
-        if (!eventId) return res.status(400).json({ error: 'eventId required' });
-        const event = await getEventByEventId(eventId);
-        if (!event) return res.status(404).json({ error: 'not found' });
-        return res.json({ event });
-    } catch (err) {
-        console.error('❌ debug event error', err);
-        res.status(500).json({ error: err.message || String(err) });
-    }
 });
 
 // Obtener todos los eventos (con paginación)
