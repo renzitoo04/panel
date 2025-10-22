@@ -2307,6 +2307,31 @@ app.get('/numeros', async (req, res) => {
 });
 
 // ============================================
+// RUTA PRINCIPAL DEL PANEL
+// ============================================
+
+app.get('/', async (req, res) => {
+    try {
+        const events = await readEvents();
+        const logs = await readLogs();
+        const stats = calculateStats(events);
+        const temporalComparison = calculateTemporalComparison(events);
+
+        res.render('dashboard', {
+            stats,
+            events,
+            logs,
+            temporalComparison,
+            currentLandingId: 'default'
+        });
+    } catch (error) {
+        console.error('❌ Error cargando dashboard:', error);
+        res.status(500).send('Error interno del servidor');
+    }
+});
+
+
+// ============================================
 // INICIAR SERVIDOR
 // ============================================
 
