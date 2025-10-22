@@ -37,8 +37,18 @@ function generateEventId() {
 }
 
 // Registrar evento en el backend
+function getURLParameters() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        fbclid: params.get('fbclid'),
+        utm_campaign: params.get('utm_campaign')
+    };
+}
+
 async function registerEvent(eventId, eventType = 'pageview') {
     try {
+        const urlParams = getURLParameters();
+        
         const response = await fetch(`${CONFIG.backendUrl}/api/track`, {
             method: 'POST',
             headers: {
@@ -49,7 +59,9 @@ async function registerEvent(eventId, eventType = 'pageview') {
                 event_type: eventType,
                 timestamp: new Date().toISOString(),
                 user_agent: navigator.userAgent,
-                referrer: document.referrer || 'direct'
+                referrer: document.referrer || 'direct',
+                fbclid: urlParams.fbclid,
+                utm_campaign: urlParams.utm_campaign
             })
         });
 

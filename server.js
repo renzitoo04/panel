@@ -790,10 +790,19 @@ app.post('/api/track', async (req, res) => {
       user_agent,
       referrer,
       attribution,
+      fbclid,
+      utm_campaign,
       landing_id = 'default',
       purchase_value,
       purchase_currency
     } = req.body;
+
+    // Construir objeto de atribución
+    const finalAttribution = {
+      ...attribution,
+      fbclid: fbclid || attribution?.fbclid,
+      utm_campaign: utm_campaign || attribution?.utm_campaign
+    };
 
     const base = {
       event_id,
@@ -802,7 +811,7 @@ app.post('/api/track', async (req, res) => {
       user_agent,
       referrer,
       client_ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
-      attribution,
+      attribution: finalAttribution,
       landing_id
     };
 
@@ -1710,6 +1719,26 @@ app.post('/api/events/:eventId/message', async (req, res) => {
             success: false, 
             error: error.message,
             tip: 'Asegúrate de que el ID del evento sea exactamente igual al que aparece en la tabla'
+        });
+    }
+});
+
+// Endpoint de depuración para ver evento por ID
+app.get('/api/debug/event/:eventId', async (req, res) => {
+    try {
+        const event = await getEventByEventId(req.params.eventId);
+        if (!event) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Evento no encontrado' 
+            });
+        }
+        res.json({ success: true, event });
+    } catch (error) {
+        console.error('Error obteniendo evento:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
         });
     }
 });
