@@ -14,6 +14,7 @@ import {
   updateEvent,
   getEvents,
   getEventStats,
+    getEventByEventId,
   upsertCampaignSpend,
   getAllCampaignSpend
 } from './lib/database.js';
@@ -805,6 +806,20 @@ app.post('/api/track', async (req, res) => {
     console.error('❌ track error', e);
     return res.status(500).json({ ok: false, error: e.message });
   }
+});
+
+// Debug: obtener evento por event_id (solo en entornos de desarrollo)
+app.get('/api/debug/event/:eventId', async (req, res) => {
+    try {
+        const eventId = req.params.eventId;
+        if (!eventId) return res.status(400).json({ error: 'eventId required' });
+        const event = await getEventByEventId(eventId);
+        if (!event) return res.status(404).json({ error: 'not found' });
+        return res.json({ event });
+    } catch (err) {
+        console.error('❌ debug event error', err);
+        res.status(500).json({ error: err.message || String(err) });
+    }
 });
 
 // Obtener todos los eventos (con paginación)
