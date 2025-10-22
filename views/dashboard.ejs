@@ -737,8 +737,11 @@
             }
         }
 
-        // Call on page load
-        loadLandingSelector();
+    // Call on page load
+    loadLandingSelector();
+    // Cargar notas y tareas desde servidor
+    loadNotes();
+    loadTasks();
 
         // Función para cambiar de landing
         function switchLanding(landingId) {
@@ -2026,24 +2029,51 @@
         }
 
         // ===== FUNCIONES DE NOTAS =====
-        function saveNotes() {
+        async function saveNotes() {
             const notes = document.getElementById('notesTextarea').value;
-            localStorage.setItem('crmNotes', notes);
-            alert('Notas guardadas correctamente');
-        }
-
-        function loadNotes() {
-            const notes = localStorage.getItem('crmNotes') || '';
-            if (document.getElementById('notesTextarea')) {
-                document.getElementById('notesTextarea').value = notes;
+            try {
+                const r = await fetch('/api/panel/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notes })
+                });
+                const json = await r.json();
+                if (json.success) {
+                    showNotification('Notas guardadas en servidor', 'success');
+                } else {
+                    showNotification('Error guardando notas en servidor', 'error', json.error);
+                }
+            } catch (err) {
+                console.error('Error saving notes:', err);
+                showNotification('Error guardando notas (network)', 'error', err.message);
             }
         }
 
-        function clearNotes() {
-            if (confirm('¿Estás seguro de que quieres borrar todas las notas?')) {
-                document.getElementById('notesTextarea').value = '';
-                localStorage.removeItem('crmNotes');
-                alert('Notas borradas');
+        async function loadNotes() {
+            try {
+                const r = await fetch('/api/panel/notes');
+                const json = await r.json();
+                if (json.success) {
+                    if (document.getElementById('notesTextarea')) document.getElementById('notesTextarea').value = json.notes || '';
+                }
+            } catch (err) {
+                console.error('Error loading notes:', err);
+            }
+        }
+
+        async function clearNotes() {
+            if (!confirm('¿Estás seguro de que quieres borrar todas las notas?')) return;
+            try {
+                await fetch('/api/panel/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notes: '' })
+                });
+                if (document.getElementById('notesTextarea')) document.getElementById('notesTextarea').value = '';
+                showNotification('Notas borradas', 'success');
+            } catch (err) {
+                console.error('Error clearing notes:', err);
+                showNotification('Error borrando notas', 'error', err.message);
             }
         }
 
@@ -2186,19 +2216,32 @@
         // ===== FUNCIONES DE TAREAS =====
         let tasks = [];
 
-        function loadTasks() {
-            const saved = localStorage.getItem('crmTasks');
-            if (saved) {
-                tasks = JSON.parse(saved);
-                renderTasks();
+        async function loadTasks() {
+            try {
+                const r = await fetch('/api/panel/tasks');
+                const json = await r.json();
+                if (json.success) {
+                    tasks = Array.isArray(json.tasks) ? json.tasks : (json.tasks?.tasks || []);
+                    renderTasks();
+                }
+            } catch (err) {
+                console.error('Error loading tasks:', err);
             }
         }
 
-        function saveTasks() {
-            localStorage.setItem('crmTasks', JSON.stringify(tasks));
+        async function saveTasks() {
+            try {
+                await fetch('/api/panel/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tasks })
+                });
+            } catch (err) {
+                console.error('Error saving tasks:', err);
+            }
         }
 
-        function addTask() {
+        async function addTask() {
             const input = document.getElementById('taskInput');
             const text = input.value.trim();
 
@@ -2209,23 +2252,23 @@
                     done: false
                 });
                 input.value = '';
-                saveTasks();
+                await saveTasks();
                 renderTasks();
             }
         }
 
-        function toggleTask(id) {
+        async function toggleTask(id) {
             const task = tasks.find(t => t.id === id);
             if (task) {
                 task.done = !task.done;
-                saveTasks();
+                await saveTasks();
                 renderTasks();
             }
         }
 
-        function deleteTask(id) {
+        async function deleteTask(id) {
             tasks = tasks.filter(t => t.id !== id);
-            saveTasks();
+            await saveTasks();
             renderTasks();
         }
 

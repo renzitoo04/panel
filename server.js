@@ -21,6 +21,7 @@ import {
 
 // also import landing settings helpers
 import { upsertLandingSettings, getLandingSettings, deleteLandingSettings } from './lib/database.js';
+import { getPanelNotes, upsertPanelNotes, getPanelTasks, upsertPanelTasks } from './lib/database.js';
 
 
 // ES modules fix for __dirname
@@ -1141,6 +1142,53 @@ app.get('/api/landings', async (req, res) => {
         success: true,
         landings: Object.values(landings)
     });
+});
+
+// PANEL: Notas y Tareas (persistencia en Supabase)
+app.get('/api/panel/notes', async (req, res) => {
+    try {
+        const { landingId } = getCurrentLandingConfig(req);
+        const rec = await getPanelNotes(landingId);
+        res.json({ success: true, notes: rec?.notes || '' });
+    } catch (err) {
+        console.error('❌ Error fetching panel notes', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/panel/notes', async (req, res) => {
+    try {
+        const { landingId } = getCurrentLandingConfig(req);
+        const { notes } = req.body;
+        await upsertPanelNotes(landingId, notes || '');
+        res.json({ success: true });
+    } catch (err) {
+        console.error('❌ Error saving panel notes', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/panel/tasks', async (req, res) => {
+    try {
+        const { landingId } = getCurrentLandingConfig(req);
+        const rec = await getPanelTasks(landingId);
+        res.json({ success: true, tasks: rec?.tasks || [] });
+    } catch (err) {
+        console.error('❌ Error fetching panel tasks', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/panel/tasks', async (req, res) => {
+    try {
+        const { landingId } = getCurrentLandingConfig(req);
+        const { tasks } = req.body;
+        await upsertPanelTasks(landingId, tasks || []);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('❌ Error saving panel tasks', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 // Crear nueva landing
