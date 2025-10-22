@@ -9,6 +9,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import axios from 'axios';
+import {
+  upsertEventByEventId,
+  updateEvent,
+  getEvents,
+  getEventStats,
+  upsertCampaignSpend,
+  getAllCampaignSpend
+} from './lib/database.js';
+
 
 // ES modules fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -726,65 +735,52 @@ function getClientIP(req) {
 
 // Endpoint para recibir tracking desde la landing
 app.post('/api/track', async (req, res) => {
-    const { event_id, event_type, timestamp, user_agent, referrer, attribution, landing_id } = req.body;
+  try {
+    const {
+      event_id,
+      event_type,
+      timestamp,
+      user_agent,
+      referrer,
+      attribution,
+      landing_id = 'default',
+      purchase_value,
+      purchase_currency
+    } = req.body;
 
-    if (!event_id) {
-        return res.status(400).json({ error: 'event_id es requerido' });
+    const base = {
+      event_id,
+      event_type,
+      created_at: timestamp ? new Date(timestamp).toISOString() : new Date().toISOString(),
+      user_agent,
+      referrer,
+      client_ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
+      attribution,
+      landing_id
+    };
+
+    // banderas según tipo
+    if (event_type === 'whatsapp_click') {
+      base.whatsapp_clicked = true;
+      base.whatsapp_click_time = new Date().toISOString();
+    }
+    if (event_type === 'message') {
+      base.has_message = true;
+      base.message_time = new Date().toISOString();
+    }
+    if (event_type === 'purchase') {
+      base.has_purchase = true;
+      base.purchase_time = new Date().toISOString();
+      base.purchase_value = Number(purchase_value || 0);
+      base.purchase_currency = purchase_currency || 'ARS';
     }
 
-    // Capturar IP del usuario
-    const client_ip = getClientIP(req);
-
-    // Si se proporciona landing_id, verificar que existe; si no, usar 'default'
-    const eventLandingId = landing_id || 'default';
-
-    const events = await readEvents();
-
-    // Buscar si el evento ya existe (búsqueda optimizada O(1))
-    let existingEvent = findEventById(events, event_id);
-
-    if (existingEvent) {
-        // Actualizar evento existente
-        if (event_type === 'whatsapp_click') {
-            existingEvent.whatsapp_clicked = true;
-            existingEvent.whatsapp_click_time = timestamp;
-        }
-        // Actualizar IP si no la tenía
-        if (!existingEvent.client_ip) {
-            existingEvent.client_ip = client_ip;
-        }
-        // Actualizar attribution si no la tenía
-        if (!existingEvent.attribution && attribution) {
-            existingEvent.attribution = attribution;
-        }
-        // Actualizar landing_id si no lo tenía
-        if (!existingEvent.landing_id) {
-            existingEvent.landing_id = eventLandingId;
-        }
-    } else {
-        // Crear nuevo evento
-        events.push({
-            event_id,
-            created_at: timestamp,
-            event_type,
-            user_agent,
-            referrer,
-            client_ip, // ← IP del usuario
-            attribution: attribution || {}, // ← UTM + fbclid + gclid
-            landing_id: eventLandingId, // ← ID del landing
-            whatsapp_clicked: event_type === 'whatsapp_click',
-            whatsapp_click_time: event_type === 'whatsapp_click' ? timestamp : null,
-            has_message: false,
-            message_time: null,
-            has_purchase: false,
-            purchase_time: null,
-            purchase_value: null
-        });
-    }
-
-    await writeEvents(events);
-
-    res.json({ success: true, event_id });
+    const saved = await upsertEventByEventId(base);
+    return res.json({ ok: true, saved });
+  } catch (e) {
+    console.error('❌ track error', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 // Obtener todos los eventos (con paginación)
@@ -2168,30 +2164,60 @@ function calculateBenchmarks(campaign) {
 // ============================================
 
 // Dashboard SIN protección de login (login deshabilitado temporalmente)
-app.get('/', async (req, res) => {
+// ============================================
+// DASHBOARD (lee de Supabase y mantiene tu lógica)
+// ============================================
+app.get(['/', '/panel'], async (req, res) => {
+  try {
+    // tu función actual: mantiene la misma lógica
     const { landingId } = getCurrentLandingConfig(req);
-    const events = await readEvents();
 
-    // Filtrar por landing_id y solo eventos con click en WhatsApp
+    // Si querés soportar fechas por query: ?from=2025-10-01&to=2025-10-22
+    const dateFrom = req.query.from || null;
+    const dateTo   = req.query.to   || null;
+
+    // 1) Traer TODOS los eventos de esa landing desde Supabase
+    const events = await getEvents(landingId, dateFrom, dateTo);
+
+    // 2) Filtrar por los que tienen click de WhatsApp (misma lógica que tenías)
     const clickedEvents = events.filter(e => {
-        const eventLandingId = e.landing_id || 'default'; // Si no tiene landing_id, asumir 'default'
-        return e.whatsapp_clicked === true && eventLandingId === landingId;
+      const eventLandingId = e.landing_id || 'default';
+      return e.whatsapp_clicked === true && eventLandingId === landingId;
     });
 
+    // 3) Calcular métricas con tus funciones existentes
     const stats = calculateStats(clickedEvents);
     const temporalComparison = calculateTemporalComparison(clickedEvents);
-    const campaignStats = await calculateCampaignStats(clickedEvents);
-    const logs = await readLogs();
 
+    // 4) Si tu calculateCampaignStats usa gasto por campaña, le pasamos el mapa desde Supabase
+    //    (si tu función ya lo resuelve sola, podés dejarlo como lo tenías)
+    let campaignStats;
+    try {
+      const spendMap = await getAllCampaignSpend(); // { campaign_id: spend, ... }
+      campaignStats = await calculateCampaignStats(clickedEvents, spendMap);
+    } catch {
+      // Fallback por si no usás campaign_spend aún
+      campaignStats = await calculateCampaignStats(clickedEvents);
+    }
+
+    // 5) Logs: si los leías de archivo, podés dejarlos vacíos por ahora
+    const logs = []; // o await readLogs() si lo mantenés
+
+    // 6) Render igual que antes
     res.render('dashboard', {
-        events: clickedEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), // Ordenar por fecha: más recientes primero
-        stats,
-        temporalComparison, // ← Agregar comparación temporal
-        campaignStats, // ← Estadísticas por campaña
-        logs: logs.slice(0, 50), // Últimos 50 logs
-        currentLandingId: landingId // ← Pasar landing actual al template
+      events: clickedEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+      stats,
+      temporalComparison,
+      campaignStats,
+      logs: logs.slice(0, 50),
+      currentLandingId: landingId
     });
+  } catch (err) {
+    console.error('❌ dashboard error', err);
+    res.status(500).send('Error interno del servidor');
+  }
 });
+
 
 // Página de Campañas y ROAS
 app.get('/campaigns', async (req, res) => {
