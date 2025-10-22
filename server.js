@@ -736,6 +736,7 @@ function getClientIP(req) {
 // Endpoint para recibir tracking desde la landing
 app.post('/api/track', async (req, res) => {
   try {
+    // Preferimos valores del body, pero también aceptamos query params
     const {
       event_id,
       event_type,
@@ -748,6 +749,24 @@ app.post('/api/track', async (req, res) => {
       purchase_currency
     } = req.body;
 
+    // campos comunes que pueden venir en querystring (fbclid, utm, campaign_id, pixel_id)
+    const { fbclid: q_fbclid, pixel_id: q_pixel_id, campaign_id: q_campaign_id } = req.query || {};
+    const fbclid = req.body.fbclid || q_fbclid || attribution?.fbclid || null;
+    const campaign_id = req.body.campaign_id || q_campaign_id || attribution?.campaign_id || null;
+    const pixel_id = req.body.pixel_id || q_pixel_id || process.env.PIXEL_ID || process.env.FACEBOOK_PIXEL_ID || null;
+
+    // asegurarnos de tener un objeto attribution consistente
+    const normalizedAttribution = Object.assign({}, attribution || {});
+    if (fbclid) normalizedAttribution.fbclid = fbclid;
+    if (campaign_id) normalizedAttribution.campaign_id = campaign_id;
+    if (pixel_id) normalizedAttribution.pixel_id = pixel_id;
+
+    // También extraer UTM si vienen en body (utm_source/utm_medium/utm_campaign)
+    ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'].forEach(k => {
+      if (req.body[k]) normalizedAttribution[k] = req.body[k];
+      if (req.query[k]) normalizedAttribution[k] = req.query[k];
+    });
+
     const base = {
       event_id,
       event_type,
@@ -755,8 +774,12 @@ app.post('/api/track', async (req, res) => {
       user_agent,
       referrer,
       client_ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
-      attribution,
-      landing_id
+      attribution: normalizedAttribution,
+      landing_id,
+      // guardar también en la raíz para facilitar columnas en la UI
+      fbclid: normalizedAttribution.fbclid || null,
+      campaign_id: normalizedAttribution.campaign_id || (normalizedAttribution.utm_campaign || null),
+      pixel_id: normalizedAttribution.pixel_id || null
     };
 
     // banderas según tipo
