@@ -39,6 +39,8 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.set('view cache', false); // Deshabilitar cache de EJS en desarrollo
 app.set('trust proxy', 1); // Confiar en proxies como LocalTunnel
+app.use(express.static(path.join(__dirname, 'public')));
+
 
 // Configuración de sesiones
 app.use(session({
