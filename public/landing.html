@@ -416,9 +416,10 @@ if (window.__TRACKING_INITIALIZED__) {
 
     const CONFIG = {
         whatsapp: '5491171071767',
-        backend: 'https://pink-apes-know.loca.lt',
+        backend: window.location.origin, // usa tu dominio actual en Vercel
         message: 'Hola, quiero mi usuario! mi codigo promocional es: '
     };
+
 
     // UUID Generator
     function generateUUID() {
