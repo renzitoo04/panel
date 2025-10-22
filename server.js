@@ -1569,57 +1569,53 @@ app.post('/api/events/:eventId/message', async (req, res) => {
 
 // Marcar evento como "compra realizada"
 app.post('/api/events/:eventId/purchase', async (req, res) => {
-    const { eventId } = req.params;
-    const { value, currency } = req.body;
-    const events = await readEvents();
+    try {
+        const { eventId } = req.params;
+        let { value, currency } = req.body;
 
-    // Búsqueda optimizada O(1)
-    const event = findEventById(events, eventId);
-
-    if (!event) {
-        return res.status(404).json({ error: 'Evento no encontrado' });
-    }
-
-    if (event.has_purchase) {
-        return res.status(400).json({ error: 'Este evento ya tiene una compra registrada' });
-    }
-
-    // VALIDACIÓN: Valor es obligatorio
-    if (!value || isNaN(value) || parseFloat(value) <= 0) {
-        return res.status(400).json({ error: 'El valor de la compra es obligatorio y debe ser mayor a 0' });
-    }
-
-    // Actualizar evento
-    event.has_purchase = true;
-    event.purchase_time = new Date().toISOString();
-    event.purchase_value = value || 0;
-    event.purchase_currency = currency || 'USD';
-
-    await writeEvents(events);
-
-    // Enviar a Facebook Conversion API
-    const fbResult = await sendToFacebookConversionAPI(
-        eventId,
-        'Purchase',
-        {
-            user_agent: event.user_agent,
-            client_ip: event.client_ip, // ← IP del usuario
-            source_url: 'whatsapp',
-            custom_data: {
-                value: event.purchase_value,
-                currency: event.purchase_currency,
-                content_name: 'Primer Depósito Casino', // Descripción del producto
-                content_type: 'product', // Tipo estándar de Facebook
-                num_items: 1 // Cantidad de items
-            }
+        // VALIDACIÓN: Valor es obligatorio
+        if (!value || isNaN(value) || parseFloat(value) <= 0) {
+            return res.status(400).json({ error: 'El valor de la compra es obligatorio y debe ser mayor a 0' });
         }
-    );
 
-    res.json({
-        success: true,
-        event,
-        facebook_api: fbResult
-    });
+        value = parseFloat(value);
+        currency = currency || 'USD';
+
+        // Actualiza el evento en Supabase
+        const updated = await updateEvent(eventId, {
+            has_purchase: true,
+            purchase_time: new Date().toISOString(),
+            purchase_value: value,
+            purchase_currency: currency
+        });
+
+        if (!updated) {
+            return res.status(404).json({ success: false, error: 'Evento no encontrado' });
+        }
+
+        // Opcional: enviar a Facebook Conversion API
+        // const fbResult = await sendToFacebookConversionAPI(
+        //     eventId,
+        //     'Purchase',
+        //     {
+        //         user_agent: updated.user_agent,
+        //         client_ip: updated.client_ip,
+        //         source_url: 'whatsapp',
+        //         custom_data: {
+        //             value: updated.purchase_value,
+        //             currency: updated.purchase_currency,
+        //             content_name: 'Primer Depósito Casino',
+        //             content_type: 'product',
+        //             num_items: 1
+        //         }
+        //     }
+        // );
+
+        res.json({ success: true, event: updated });
+    } catch (error) {
+        console.error('Error al marcar compra realizada:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // ============================================
