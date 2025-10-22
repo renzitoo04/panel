@@ -736,6 +736,14 @@ function getClientIP(req) {
 // Endpoint para recibir tracking desde la landing
 app.post('/api/track', async (req, res) => {
   try {
+    console.log('📥 Recibido evento de tracking:', {
+      body: req.body,
+      query: req.query,
+      headers: {
+        'user-agent': req.headers['user-agent'],
+        'x-forwarded-for': req.headers['x-forwarded-for']
+      }
+    });
     // Preferimos valores del body, pero también aceptamos query params
     const {
       event_id,
@@ -798,7 +806,15 @@ app.post('/api/track', async (req, res) => {
       base.purchase_currency = purchase_currency || 'ARS';
     }
 
+    console.log('💾 Intentando guardar evento:', {
+      event_type: base.event_type,
+      event_id: base.event_id,
+      whatsapp_clicked: base.whatsapp_clicked,
+      attribution: base.attribution
+    });
+
     const saved = await upsertEventByEventId(base);
+    console.log('✅ Evento guardado:', saved);
     return res.json({ ok: true, saved });
   } catch (e) {
     console.error('❌ track error', e);
