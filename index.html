@@ -434,25 +434,7 @@ if (window.__TRACKING_INITIALIZED__) {
             attribution: STATE.attribution
         };
 
-        // Usar sendBeacon para mayor confiabilidad (no se cancela si cierran ventana)
-        if (navigator.sendBeacon) {
-            try {
-                const blob = new Blob([JSON.stringify(payload)], {
-                    type: 'application/json'
-                });
-                const sent = navigator.sendBeacon(`${CONFIG.backend}/api/track`, blob);
-                console.log(`✅ ${type} enviado con sendBeacon:`, sent ? 'OK' : 'FALLIDO');
-
-                if (STATE.attribution.fbclid || STATE.attribution.utm_campaign) {
-                    console.log('📊 Attribution:', STATE.attribution);
-                }
-                return;
-            } catch (e) {
-                console.warn('⚠️ sendBeacon falló, usando fetch...', e);
-            }
-        }
-
-        // Fallback: fetch tradicional
+        // Usar fetch con headers personalizados (requerido para LocalTunnel)
         try {
             const response = await fetch(`${CONFIG.backend}/api/track`, {
                 method: 'POST',
