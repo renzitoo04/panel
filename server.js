@@ -736,15 +736,6 @@ function getClientIP(req) {
 // Endpoint para recibir tracking desde la landing
 app.post('/api/track', async (req, res) => {
   try {
-    console.log('📥 Recibido evento de tracking:', {
-      body: req.body,
-      query: req.query,
-      headers: {
-        'user-agent': req.headers['user-agent'],
-        'x-forwarded-for': req.headers['x-forwarded-for']
-      }
-    });
-    // Preferimos valores del body, pero también aceptamos query params
     const {
       event_id,
       event_type,
@@ -757,24 +748,6 @@ app.post('/api/track', async (req, res) => {
       purchase_currency
     } = req.body;
 
-    // campos comunes que pueden venir en querystring (fbclid, utm, campaign_id, pixel_id)
-    const { fbclid: q_fbclid, pixel_id: q_pixel_id, campaign_id: q_campaign_id } = req.query || {};
-    const fbclid = req.body.fbclid || q_fbclid || attribution?.fbclid || null;
-    const campaign_id = req.body.campaign_id || q_campaign_id || attribution?.campaign_id || null;
-    const pixel_id = req.body.pixel_id || q_pixel_id || process.env.PIXEL_ID || process.env.FACEBOOK_PIXEL_ID || null;
-
-    // asegurarnos de tener un objeto attribution consistente
-    const normalizedAttribution = Object.assign({}, attribution || {});
-    if (fbclid) normalizedAttribution.fbclid = fbclid;
-    if (campaign_id) normalizedAttribution.campaign_id = campaign_id;
-    if (pixel_id) normalizedAttribution.pixel_id = pixel_id;
-
-    // También extraer UTM si vienen en body (utm_source/utm_medium/utm_campaign)
-    ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'].forEach(k => {
-      if (req.body[k]) normalizedAttribution[k] = req.body[k];
-      if (req.query[k]) normalizedAttribution[k] = req.query[k];
-    });
-
     const base = {
       event_id,
       event_type,
@@ -782,12 +755,8 @@ app.post('/api/track', async (req, res) => {
       user_agent,
       referrer,
       client_ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
-      attribution: normalizedAttribution,
-      landing_id,
-      // guardar también en la raíz para facilitar columnas en la UI
-      fbclid: normalizedAttribution.fbclid || null,
-      campaign_id: normalizedAttribution.campaign_id || (normalizedAttribution.utm_campaign || null),
-      pixel_id: normalizedAttribution.pixel_id || null
+      attribution,
+      landing_id
     };
 
     // banderas según tipo
@@ -806,15 +775,7 @@ app.post('/api/track', async (req, res) => {
       base.purchase_currency = purchase_currency || 'ARS';
     }
 
-    console.log('💾 Intentando guardar evento:', {
-      event_type: base.event_type,
-      event_id: base.event_id,
-      whatsapp_clicked: base.whatsapp_clicked,
-      attribution: base.attribution
-    });
-
     const saved = await upsertEventByEventId(base);
-    console.log('✅ Evento guardado:', saved);
     return res.json({ ok: true, saved });
   } catch (e) {
     console.error('❌ track error', e);
@@ -1582,79 +1543,97 @@ app.post('/api/settings/facebook', async (req, res) => {
 
 // Marcar evento como "mensaje recibido"
 app.post('/api/events/:eventId/message', async (req, res) => {
-    try {
-        const { eventId } = req.params;
-        // Actualiza el evento en Supabase
-        const updated = await updateEvent(eventId, { has_message: true, message_time: new Date().toISOString() });
-        if (!updated) {
-            return res.status(404).json({ success: false, error: 'Evento no encontrado' });
-        }
-        // Enviar a Facebook Conversion API (opcional, si quieres mantenerlo)
-        // const fbResult = await sendToFacebookConversionAPI(
-        //     eventId,
-        //     'Contact',
-        //     {
-        //         user_agent: updated.user_agent,
-        //         client_ip: updated.client_ip, // ← IP del usuario
-        //         source_url: 'whatsapp'
-        //     }
-        // );
-        res.json({ success: true, event: updated });
-    } catch (error) {
-        console.error('Error al marcar mensaje recibido:', error);
-        res.status(500).json({ success: false, error: error.message });
+    const { eventId } = req.params;
+    const events = await readEvents();
+
+    // Búsqueda optimizada O(1)
+    const event = findEventById(events, eventId);
+
+    if (!event) {
+        return res.status(404).json({ error: 'Evento no encontrado' });
     }
+
+    if (event.has_message) {
+        return res.status(400).json({ error: 'Este evento ya tiene un mensaje registrado' });
+    }
+
+    // Actualizar evento
+    event.has_message = true;
+    event.message_time = new Date().toISOString();
+
+    await writeEvents(events);
+
+    // Enviar a Facebook Conversion API
+    const fbResult = await sendToFacebookConversionAPI(
+        eventId,
+        'Contact',
+        {
+            user_agent: event.user_agent,
+            client_ip: event.client_ip, // ← IP del usuario
+            source_url: 'whatsapp'
+        }
+    );
+
+    res.json({
+        success: true,
+        event,
+        facebook_api: fbResult
+    });
 });
 
 // Marcar evento como "compra realizada"
 app.post('/api/events/:eventId/purchase', async (req, res) => {
-    try {
-        const { eventId } = req.params;
-        let { value, currency } = req.body;
+    const { eventId } = req.params;
+    const { value, currency } = req.body;
+    const events = await readEvents();
 
-        // VALIDACIÓN: Valor es obligatorio
-        if (!value || isNaN(value) || parseFloat(value) <= 0) {
-            return res.status(400).json({ error: 'El valor de la compra es obligatorio y debe ser mayor a 0' });
-        }
+    // Búsqueda optimizada O(1)
+    const event = findEventById(events, eventId);
 
-        value = parseFloat(value);
-        currency = currency || 'USD';
-
-        // Actualiza el evento en Supabase
-        const updated = await updateEvent(eventId, {
-            has_purchase: true,
-            purchase_time: new Date().toISOString(),
-            purchase_value: value,
-            purchase_currency: currency
-        });
-
-        if (!updated) {
-            return res.status(404).json({ success: false, error: 'Evento no encontrado' });
-        }
-
-        // Opcional: enviar a Facebook Conversion API
-        // const fbResult = await sendToFacebookConversionAPI(
-        //     eventId,
-        //     'Purchase',
-        //     {
-        //         user_agent: updated.user_agent,
-        //         client_ip: updated.client_ip,
-        //         source_url: 'whatsapp',
-        //         custom_data: {
-        //             value: updated.purchase_value,
-        //             currency: updated.purchase_currency,
-        //             content_name: 'Primer Depósito Casino',
-        //             content_type: 'product',
-        //             num_items: 1
-        //         }
-        //     }
-        // );
-
-        res.json({ success: true, event: updated });
-    } catch (error) {
-        console.error('Error al marcar compra realizada:', error);
-        res.status(500).json({ success: false, error: error.message });
+    if (!event) {
+        return res.status(404).json({ error: 'Evento no encontrado' });
     }
+
+    if (event.has_purchase) {
+        return res.status(400).json({ error: 'Este evento ya tiene una compra registrada' });
+    }
+
+    // VALIDACIÓN: Valor es obligatorio
+    if (!value || isNaN(value) || parseFloat(value) <= 0) {
+        return res.status(400).json({ error: 'El valor de la compra es obligatorio y debe ser mayor a 0' });
+    }
+
+    // Actualizar evento
+    event.has_purchase = true;
+    event.purchase_time = new Date().toISOString();
+    event.purchase_value = value || 0;
+    event.purchase_currency = currency || 'USD';
+
+    await writeEvents(events);
+
+    // Enviar a Facebook Conversion API
+    const fbResult = await sendToFacebookConversionAPI(
+        eventId,
+        'Purchase',
+        {
+            user_agent: event.user_agent,
+            client_ip: event.client_ip, // ← IP del usuario
+            source_url: 'whatsapp',
+            custom_data: {
+                value: event.purchase_value,
+                currency: event.purchase_currency,
+                content_name: 'Primer Depósito Casino', // Descripción del producto
+                content_type: 'product', // Tipo estándar de Facebook
+                num_items: 1 // Cantidad de items
+            }
+        }
+    );
+
+    res.json({
+        success: true,
+        event,
+        facebook_api: fbResult
+    });
 });
 
 // ============================================
