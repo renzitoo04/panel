@@ -4,9 +4,9 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const axios = require('axios');
 const fs = require('fs').promises;
 const path = require('path');
+import axios from 'axios';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
