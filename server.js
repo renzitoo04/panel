@@ -1543,42 +1543,52 @@ app.post('/api/settings/facebook', async (req, res) => {
 
 // Marcar evento como "mensaje recibido"
 app.post('/api/events/:eventId/message', async (req, res) => {
-    const { eventId } = req.params;
-    const events = await readEvents();
+    try {
+        const { eventId } = req.params;
+        
+        console.log('📝 Intentando marcar mensaje para event_id:', eventId);
 
-    // Búsqueda optimizada O(1)
-    const event = findEventById(events, eventId);
+        // Actualizar evento usando Supabase
+        const updated = await updateEvent(eventId, {
+            has_message: true,
+            message_time: new Date().toISOString()
+        });
 
-    if (!event) {
-        return res.status(404).json({ error: 'Evento no encontrado' });
-    }
-
-    if (event.has_message) {
-        return res.status(400).json({ error: 'Este evento ya tiene un mensaje registrado' });
-    }
-
-    // Actualizar evento
-    event.has_message = true;
-    event.message_time = new Date().toISOString();
-
-    await writeEvents(events);
-
-    // Enviar a Facebook Conversion API
-    const fbResult = await sendToFacebookConversionAPI(
-        eventId,
-        'Contact',
-        {
-            user_agent: event.user_agent,
-            client_ip: event.client_ip, // ← IP del usuario
-            source_url: 'whatsapp'
+        if (!updated) {
+            console.log('❌ Evento no encontrado:', eventId);
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Evento no encontrado',
+                details: 'Verifica que el ID sea exactamente igual al que aparece en la tabla'
+            });
         }
-    );
 
-    res.json({
-        success: true,
-        event,
-        facebook_api: fbResult
-    });
+        console.log('✅ Evento actualizado:', updated);
+
+        // Opcional: Enviar a Facebook Conversion API
+        const fbResult = await sendToFacebookConversionAPI(
+            eventId,
+            'Contact',
+            {
+                user_agent: updated.user_agent,
+                client_ip: updated.client_ip,
+                source_url: 'whatsapp'
+            }
+        );
+
+        res.json({
+            success: true,
+            event: updated,
+            facebook_api: fbResult
+        });
+    } catch (error) {
+        console.error('❌ Error al marcar mensaje:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            tip: 'Asegúrate de que el ID del evento sea exactamente igual al que aparece en la tabla'
+        });
+    }
 });
 
 // Marcar evento como "compra realizada"
