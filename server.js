@@ -14,9 +14,13 @@ import {
   updateEvent,
   getEvents,
   getEventStats,
+    getEventByEventId,
   upsertCampaignSpend,
   getAllCampaignSpend
 } from './lib/database.js';
+
+// also import landing settings helpers
+import { upsertLandingSettings, getLandingSettings, deleteLandingSettings } from './lib/database.js';
 
 
 // ES modules fix for __dirname
@@ -1176,7 +1180,16 @@ app.post('/api/landings', async (req, res) => {
         createdAt: new Date().toISOString()
     };
 
+    // Intentar persistir en archivo local
     const saved = await writeLandings(landings);
+
+    // Intentar persistir también en Supabase (tabla `settien`) — no bloqueante
+    try {
+        await upsertLandingSettings(id, pixelId, accessToken, name, true);
+        console.log('✅ Landing guardada también en Supabase settien:', id);
+    } catch (err) {
+        console.warn('⚠️ No se pudo guardar landing en Supabase:', err.message || err);
+    }
 
     if (saved) {
         res.json({
@@ -1186,7 +1199,7 @@ app.post('/api/landings', async (req, res) => {
     } else {
         res.status(500).json({
             success: false,
-            error: 'Error al guardar la landing'
+            error: 'Error al guardar la landing (archivo)'
         });
     }
 });
@@ -1221,6 +1234,14 @@ app.put('/api/landings/:id', async (req, res) => {
 
     const saved = await writeLandings(landings);
 
+    // Intentar actualizar settings en Supabase
+    try {
+        await upsertLandingSettings(id, landings[id].pixelId, landings[id].accessToken, landings[id].name, landings[id].active);
+        console.log('✅ Landing actualizada en Supabase settien:', id);
+    } catch (err) {
+        console.warn('⚠️ No se pudo actualizar landing en Supabase:', err.message || err);
+    }
+
     if (saved) {
         res.json({
             success: true,
@@ -1229,7 +1250,7 @@ app.put('/api/landings/:id', async (req, res) => {
     } else {
         res.status(500).json({
             success: false,
-            error: 'Error al actualizar la landing'
+            error: 'Error al actualizar la landing (archivo)'
         });
     }
 });
@@ -1259,6 +1280,14 @@ app.delete('/api/landings/:id', async (req, res) => {
 
     const saved = await writeLandings(landings);
 
+    // Intentar borrar settings en Supabase
+    try {
+        await deleteLandingSettings(id);
+        console.log('✅ Landing settings borrada en Supabase settien:', id);
+    } catch (err) {
+        console.warn('⚠️ No se pudo borrar landing en Supabase:', err.message || err);
+    }
+
     if (saved) {
         res.json({
             success: true,
@@ -1267,7 +1296,7 @@ app.delete('/api/landings/:id', async (req, res) => {
     } else {
         res.status(500).json({
             success: false,
-            error: 'Error al eliminar la landing'
+            error: 'Error al eliminar la landing (archivo)'
         });
     }
 });
