@@ -528,7 +528,8 @@ function calculateTemporalComparison(events) {
 }
 
 async function calculateCampaignStats(events) {
-    const campaignSpend = await readCampaignSpend();
+    // Obtener gastos de campaña desde Supabase
+    const campaignSpend = await getAllCampaignSpend();
     const campaignGroups = {};
 
     // Agrupar eventos por campaña
@@ -2376,13 +2377,11 @@ app.get(['/', '/panel'], async (req, res) => {
 // Página de Campañas y ROAS
 app.get('/campaigns', async (req, res) => {
     const { landingId } = getCurrentLandingConfig(req);
-    const events = await readEvents();
+    // Obtener eventos de Supabase filtrados por landing y clicks
+    const events = await getEvents(landingId);
 
-    // Filtrar por landing_id y solo eventos con click en WhatsApp
-    const clickedEvents = events.filter(e => {
-        const eventLandingId = e.landing_id || 'default'; // Si no tiene landing_id, asumir 'default'
-        return e.whatsapp_clicked === true && eventLandingId === landingId;
-    });
+    // Filtrar solo eventos con click en WhatsApp
+    const clickedEvents = events.filter(e => e.whatsapp_clicked === true);
 
     const campaignStats = await calculateCampaignStats(clickedEvents);
     const funnelAnalysis = calculateFunnelAnalysis(clickedEvents);
