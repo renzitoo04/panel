@@ -1543,42 +1543,28 @@ app.post('/api/settings/facebook', async (req, res) => {
 
 // Marcar evento como "mensaje recibido"
 app.post('/api/events/:eventId/message', async (req, res) => {
-    const { eventId } = req.params;
-    const events = await readEvents();
-
-    // Búsqueda optimizada O(1)
-    const event = findEventById(events, eventId);
-
-    if (!event) {
-        return res.status(404).json({ error: 'Evento no encontrado' });
-    }
-
-    if (event.has_message) {
-        return res.status(400).json({ error: 'Este evento ya tiene un mensaje registrado' });
-    }
-
-    // Actualizar evento
-    event.has_message = true;
-    event.message_time = new Date().toISOString();
-
-    await writeEvents(events);
-
-    // Enviar a Facebook Conversion API
-    const fbResult = await sendToFacebookConversionAPI(
-        eventId,
-        'Contact',
-        {
-            user_agent: event.user_agent,
-            client_ip: event.client_ip, // ← IP del usuario
-            source_url: 'whatsapp'
+    try {
+        const { eventId } = req.params;
+        // Actualiza el evento en Supabase
+        const updated = await updateEvent(eventId, { has_message: true, message_time: new Date().toISOString() });
+        if (!updated) {
+            return res.status(404).json({ success: false, error: 'Evento no encontrado' });
         }
-    );
-
-    res.json({
-        success: true,
-        event,
-        facebook_api: fbResult
-    });
+        // Enviar a Facebook Conversion API (opcional, si quieres mantenerlo)
+        // const fbResult = await sendToFacebookConversionAPI(
+        //     eventId,
+        //     'Contact',
+        //     {
+        //         user_agent: updated.user_agent,
+        //         client_ip: updated.client_ip, // ← IP del usuario
+        //         source_url: 'whatsapp'
+        //     }
+        // );
+        res.json({ success: true, event: updated });
+    } catch (error) {
+        console.error('Error al marcar mensaje recibido:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // Marcar evento como "compra realizada"
