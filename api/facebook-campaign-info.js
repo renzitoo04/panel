@@ -1,5 +1,7 @@
 // api/facebook-campaign-info.js
 import fetch from 'node-fetch';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 const FACEBOOK_API_VERSION = 'v18.0';
 
