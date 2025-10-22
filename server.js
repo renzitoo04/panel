@@ -735,29 +735,53 @@ function getClientIP(req) {
 
 // Endpoint para recibir tracking desde la landing
 app.post('/api/track', async (req, res) => {
-  try {
-    const {
-      event_id,
-      event_type,
-      timestamp,
-      user_agent,
-      referrer,
-      attribution,
-      landing_id = 'default',
-      purchase_value,
-      purchase_currency
-    } = req.body;
+    try {
+        const {
+            event_id,
+            event_type,
+            timestamp,
+            user_agent,
+            referrer,
+            attribution,
+            landing_id = 'default',
+            purchase_value,
+            purchase_currency
+        } = req.body;
 
-    const base = {
-      event_id,
-      event_type,
-      created_at: timestamp ? new Date(timestamp).toISOString() : new Date().toISOString(),
-      user_agent,
-      referrer,
-      client_ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
-      attribution,
-      landing_id
-    };
+        // --- NUEVO: normalizar attribution ---
+        function pick(obj, ...keys) {
+            for (const k of keys) if (obj && obj[k]) return obj[k];
+            return null;
+        }
+
+        let fbclidFromReferrer = null;
+        try {
+            if (referrer && referrer.includes('?')) {
+                const qs = new URLSearchParams(referrer.split('?')[1]);
+                fbclidFromReferrer = qs.get('fbclid');
+            }
+        } catch {}
+
+        const normalizedAttribution = {
+            ...(attribution || {}),
+            // preferimos ID de campaña si llega con cualquiera de estos nombres
+            campaign_id: pick(attribution, 'campaign_id', 'fb_campaign_id', 'utm_campaign_id'),
+            // conservamos el nombre si viene
+            utm_campaign: pick(attribution, 'utm_campaign', 'campaign') || (attribution?.utm_campaign ?? null),
+            // garantizamos fbclid
+            fbclid: pick(attribution, 'fbclid') || fbclidFromReferrer
+        };
+
+        const base = {
+            event_id,
+            event_type,
+            created_at: timestamp ? new Date(timestamp).toISOString() : new Date().toISOString(),
+            user_agent,
+            referrer,
+            client_ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
+            attribution: normalizedAttribution, // <-- usar la attribution normalizada
+            landing_id
+        };
 
     // banderas según tipo
     if (event_type === 'whatsapp_click') {

@@ -376,15 +376,22 @@
                                             <%= event.client_ip || 'No capturada' %>
                                         </code>
                                     </td>
-                                    <td>
-                                        <% if (event.attribution && event.attribution.utm_campaign) { %>
-                                            <span class="badge-campaign" title="<%= event.attribution.utm_campaign %>">
-                                                <%= event.attribution.utm_campaign.substring(0, 15) %><%= event.attribution.utm_campaign.length > 15 ? '...' : '' %>
-                                            </span>
-                                        <% } else { %>
-                                            <span class="text-muted">-</span>
-                                        <% } %>
-                                    </td>
+                                                                        <td>
+    <% 
+        const campId   = event.attribution && (event.attribution.campaign_id || event.attribution.fb_campaign_id || event.attribution.utm_campaign_id);
+        const campName = event.attribution && event.attribution.utm_campaign;
+    %>
+    <% if (campId || campName) { %>
+        <span class="badge-campaign" title="<%= campId || campName %>">
+            <%= (campId || campName).toString().substring(0, 20) %><%= (campId || campName).toString().length > 20 ? '...' : '' %>
+        </span>
+        <% if (campId && campName) { %>
+            <br><small><%= campName %></small>
+        <% } %>
+    <% } else { %>
+        <span class="text-muted">-</span>
+    <% } %>
+</td>
                                     <td>
                                         <% if (event.attribution && event.attribution.fbclid) { %>
                                             <code class="fbclid" title="<%= event.attribution.fbclid %>">
