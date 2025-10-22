@@ -1,7 +1,9 @@
 {
   "version": 2,
-  "buildCommand": null,
-  "outputDirectory": ".",
-  "cleanUrls": true,
-  "trailingSlash": false
+  "builds": [
+    { "src": "server.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "server.js" }
+  ]
 }

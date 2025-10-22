@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración de Landings - Panel CRM</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <!-- SIDEBAR LATERAL PLEGABLE -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Navegación</h3>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">
+                <span class="toggle-icon">◀</span>
+            </button>
+        </div>
+
+        <div class="sidebar-menu">
+            <a href="/" class="menu-item">
+                <span class="menu-icon">📊</span>
+                <span class="menu-text">Dashboard</span>
+            </a>
+            <a href="/campaigns" class="menu-item">
+                <span class="menu-icon">💰</span>
+                <span class="menu-text">Campañas</span>
+            </a>
+            <a href="/numeros" class="menu-item">
+                <span class="menu-icon">📱</span>
+                <span class="menu-text">Números</span>
+            </a>
+            <a href="/settings" class="menu-item active">
+                <span class="menu-icon">⚙️</span>
+                <span class="menu-text">Configuración</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- BOTÓN FLOTANTE PARA ABRIR SIDEBAR (cuando está cerrado) -->
+    <button class="sidebar-floating-btn" id="sidebarFloatingBtn" onclick="toggleSidebar()">
+        <span>▶</span>
+    </button>
+
+    <div class="main-content" id="mainContent">
+        <div class="container">
+            <header class="header">
+                <div class="header-content">
+                    <div class="header-title">
+                        <h1>⚙️ Configuración de Landings</h1>
+                        <p class="subtitle">Administra tus landing pages y sus credenciales de Facebook Pixel</p>
+                    </div>
+                    <button onclick="openLandingModal()" class="btn btn-primary">+ Agregar Nueva Landing</button>
+                </div>
+            </header>
+
+            <!-- GRID DE LANDINGS -->
+            <section class="settings-section">
+                <div class="landings-grid" id="landingsGrid">
+                    <% if (landings.length === 0) { %>
+                        <div class="empty-state">
+                            <p>📭 No hay landings configuradas</p>
+                            <p class="empty-hint">Agrega tu primera landing page para comenzar</p>
+                        </div>
+                    <% } else { %>
+                        <% landings.forEach(landing => { %>
+                            <div class="landing-card" data-landing-id="<%= landing.id %>">
+                                <div class="landing-card-header">
+                                    <h3 class="landing-card-title"><%= landing.name %></h3>
+                                    <span class="status-badge <%= landing.active ? 'badge-active' : 'badge-inactive' %>">
+                                        <%= landing.active ? '✓ Activa' : '○ Inactiva' %>
+                                    </span>
+                                </div>
+
+                                <div class="landing-card-body">
+                                    <div class="landing-info-row">
+                                        <span class="info-label">Pixel ID:</span>
+                                        <code class="info-value">****<%= landing.pixelId.slice(-4) %></code>
+                                    </div>
+
+                                    <div class="landing-info-row">
+                                        <span class="info-label">Access Token:</span>
+                                        <code class="info-value">****<%= landing.accessToken.slice(-4) %></code>
+                                    </div>
+
+                                    <% if (landing.createdAt) { %>
+                                    <div class="landing-info-row">
+                                        <span class="info-label">Creada:</span>
+                                        <span class="info-value">
+                                            <%= new Date(landing.createdAt).toLocaleDateString('es-AR', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric'
+                                            }) %>
+                                        </span>
+                                    </div>
+                                    <% } %>
+                                </div>
+
+                                <div class="landing-card-actions">
+                                    <% if (landing.id === 'default') { %>
+                                        <button class="btn btn-secondary" disabled title="La landing principal no puede ser editada desde aquí">
+                                            🔒 Protegida
+                                        </button>
+                                    <% } else { %>
+                                        <button class="btn btn-secondary" onclick="editLanding('<%= landing.id %>')">
+                                            ✏️ Editar
+                                        </button>
+                                        <button class="btn btn-danger" onclick="deleteLanding('<%= landing.id %>', '<%= landing.name %>')">
+                                            🗑️ Eliminar
+                                        </button>
+                                    <% } %>
+                                </div>
+                            </div>
+                        <% }); %>
+                    <% } %>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- MODAL PARA AGREGAR/EDITAR LANDING -->
+    <div id="landingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">+ Agregar Nueva Landing</h3>
+                <span class="close" onclick="closeLandingModal()">&times;</span>
+            </div>
+            <form id="landingForm" class="modal-form">
+                <input type="hidden" id="landingId" name="landingId">
+
+                <div class="form-group">
+                    <label for="landingName">Nombre de la Landing:</label>
+                    <input
+                        type="text"
+                        id="landingName"
+                        name="name"
+                        required
+                        placeholder="Ej: Landing Argenbet 2"
+                        maxlength="50"
+                    >
+                    <small>Este nombre se mostrará en el selector de landings</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="landingPixelId">Facebook Pixel ID:</label>
+                    <input
+                        type="text"
+                        id="landingPixelId"
+                        name="pixelId"
+                        required
+                        placeholder="Ej: 1126842699347074"
+                        pattern="[0-9]+"
+                        title="Solo números"
+                    >
+                    <small>Número de 15-16 dígitos de tu Facebook Pixel</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="landingAccessToken">Facebook Access Token:</label>
+                    <textarea
+                        id="landingAccessToken"
+                        name="accessToken"
+                        required
+                        placeholder="Pega aquí tu Access Token de Facebook..."
+                        rows="4"
+                        class="settings-textarea"
+                    ></textarea>
+                    <small>Token generado desde Events Manager → Conversions API</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="closeLandingModal()" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">💾 Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notificaciones -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        let currentEditingId = null;
+
+        // FUNCIONES PARA SIDEBAR
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const floatingBtn = document.getElementById('sidebarFloatingBtn');
+
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+
+            if (sidebar.classList.contains('collapsed')) {
+                floatingBtn.style.display = 'flex';
+            } else {
+                floatingBtn.style.display = 'none';
+            }
+        }
+
+        // Mostrar notificación
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification show ${type}`;
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
+        }
+
+        // FUNCIONES PARA MODAL
+        function openLandingModal() {
+            currentEditingId = null;
+            document.getElementById('modalTitle').textContent = '+ Agregar Nueva Landing';
+            document.getElementById('submitBtn').textContent = '💾 Guardar';
+            document.getElementById('landingForm').reset();
+            document.getElementById('landingId').value = '';
+            document.getElementById('landingModal').style.display = 'flex';
+        }
+
+        function closeLandingModal() {
+            document.getElementById('landingModal').style.display = 'none';
+            document.getElementById('landingForm').reset();
+            currentEditingId = null;
+        }
+
+        // Cerrar modal al hacer click fuera
+        window.onclick = function(event) {
+            const modal = document.getElementById('landingModal');
+            if (event.target === modal) {
+                closeLandingModal();
+            }
+        };
+
+        // Editar landing
+        async function editLanding(landingId) {
+            try {
+                const response = await fetch('/api/landings');
+                const data = await response.json();
+
+                if (data.success) {
+                    const landing = data.landings.find(l => l.id === landingId);
+
+                    if (landing) {
+                        currentEditingId = landingId;
+                        document.getElementById('modalTitle').textContent = '✏️ Editar Landing';
+                        document.getElementById('submitBtn').textContent = '💾 Actualizar';
+                        document.getElementById('landingId').value = landing.id;
+                        document.getElementById('landingName').value = landing.name;
+                        document.getElementById('landingPixelId').value = landing.pixelId;
+                        document.getElementById('landingAccessToken').value = landing.accessToken;
+                        document.getElementById('landingModal').style.display = 'flex';
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Error al cargar los datos de la landing', 'error');
+            }
+        }
+
+        // Eliminar landing
+        async function deleteLanding(landingId, landingName) {
+            if (landingId === 'default') {
+                showNotification('No se puede eliminar la landing principal', 'error');
+                return;
+            }
+
+            if (!confirm(`¿Estás seguro de que quieres eliminar la landing "${landingName}"?\n\nEsta acción no se puede deshacer.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/landings/${landingId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Landing eliminada correctamente', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showNotification('Error: ' + (data.error || 'No se pudo eliminar la landing'), 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Error al eliminar la landing', 'error');
+            }
+        }
+
+        // Manejar envío del formulario
+        document.getElementById('landingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const landingData = {
+                name: formData.get('name').trim(),
+                pixelId: formData.get('pixelId').trim(),
+                accessToken: formData.get('accessToken').trim()
+            };
+
+            // Validar
+            if (!landingData.name || !landingData.pixelId || !landingData.accessToken) {
+                showNotification('Por favor completa todos los campos', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Guardando...';
+
+            try {
+                let url = '/api/landings';
+                let method = 'POST';
+
+                // Si estamos editando
+                if (currentEditingId) {
+                    url = `/api/landings/${currentEditingId}`;
+                    method = 'PUT';
+                }
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(landingData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification(
+                        currentEditingId ? 'Landing actualizada correctamente' : 'Landing creada correctamente',
+                        'success'
+                    );
+                    closeLandingModal();
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showNotification('Error: ' + (data.error || 'No se pudo guardar'), 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = currentEditingId ? '💾 Actualizar' : '💾 Guardar';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Error al guardar la landing', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = currentEditingId ? '💾 Actualizar' : '💾 Guardar';
+            }
+        });
+
+        // Recargar landings cada 30 segundos
+        setInterval(() => {
+            // Solo recargar si no hay modal abierto
+            const modal = document.getElementById('landingModal');
+            if (modal.style.display !== 'flex') {
+                loadLandings();
+            }
+        }, 30000);
+
+        // Función para recargar landings sin refrescar la página
+        async function loadLandings() {
+            try {
+                const response = await fetch('/api/landings');
+                const data = await response.json();
+
+                if (data.success && data.landings) {
+                    updateLandingsGrid(data.landings);
+                }
+            } catch (error) {
+                console.error('Error loading landings:', error);
+            }
+        }
+
+        function updateLandingsGrid(landings) {
+            const grid = document.getElementById('landingsGrid');
+
+            if (landings.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <p>📭 No hay landings configuradas</p>
+                        <p class="empty-hint">Agrega tu primera landing page para comenzar</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = landings.map(landing => `
+                <div class="landing-card" data-landing-id="${landing.id}">
+                    <div class="landing-card-header">
+                        <h3 class="landing-card-title">${landing.name}</h3>
+                        <span class="status-badge ${landing.active ? 'badge-active' : 'badge-inactive'}">
+                            ${landing.active ? '✓ Activa' : '○ Inactiva'}
+                        </span>
+                    </div>
+
+                    <div class="landing-card-body">
+                        <div class="landing-info-row">
+                            <span class="info-label">Pixel ID:</span>
+                            <code class="info-value">****${landing.pixelId.slice(-4)}</code>
+                        </div>
+
+                        <div class="landing-info-row">
+                            <span class="info-label">Access Token:</span>
+                            <code class="info-value">****${landing.accessToken.slice(-4)}</code>
+                        </div>
+
+                        ${landing.createdAt ? `
+                        <div class="landing-info-row">
+                            <span class="info-label">Creada:</span>
+                            <span class="info-value">
+                                ${new Date(landing.createdAt).toLocaleDateString('es-AR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                })}
+                            </span>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="landing-card-actions">
+                        ${landing.id === 'default' ? `
+                            <button class="btn btn-secondary" disabled title="La landing principal no puede ser editada desde aquí">
+                                🔒 Protegida
+                            </button>
+                        ` : `
+                            <button class="btn btn-secondary" onclick="editLanding('${landing.id}')">
+                                ✏️ Editar
+                            </button>
+                            <button class="btn btn-danger" onclick="deleteLanding('${landing.id}', '${landing.name}')">
+                                🗑️ Eliminar
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `).join('');
+        }
+    </script>
+
+    <style>
+        /* Estilos adicionales para la página de settings */
+        .landings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .landing-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .landing-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .landing-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .landing-card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .badge-active {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .badge-inactive {
+            background: rgba(107, 114, 128, 0.15);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .landing-card-body {
+            margin-bottom: 20px;
+        }
+
+        .landing-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .info-label {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .info-value {
+            font-size: 14px;
+            color: var(--text-primary);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .landing-card-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .landing-card-actions .btn {
+            flex: 1;
+            font-size: 14px;
+            padding: 10px 16px;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: var(--accent-red);
+        }
+
+        .settings-section {
+            margin-top: 30px;
+        }
+
+        .settings-textarea {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+
+        .settings-textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .landings-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .landing-card-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</body>
+</html>

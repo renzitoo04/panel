@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Números de WhatsApp - Rotación</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <!-- SIDEBAR LATERAL PLEGABLE -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Navegación</h3>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">
+                <span class="toggle-icon">◀</span>
+            </button>
+        </div>
+
+        <div class="sidebar-menu">
+            <a href="/" class="menu-item">
+                <span class="menu-icon">📊</span>
+                <span class="menu-text">Dashboard</span>
+            </a>
+            <a href="/campaigns" class="menu-item">
+                <span class="menu-icon">💰</span>
+                <span class="menu-text">Campañas</span>
+            </a>
+            <a href="/numeros" class="menu-item active">
+                <span class="menu-icon">📱</span>
+                <span class="menu-text">Números</span>
+            </a>
+            <a href="/settings" class="menu-item">
+                <span class="menu-icon">⚙️</span>
+                <span class="menu-text">Configuración</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- BOTÓN FLOTANTE PARA ABRIR SIDEBAR (cuando está cerrado) -->
+    <button class="sidebar-floating-btn" id="sidebarFloatingBtn" onclick="toggleSidebar()">
+        <span>▶</span>
+    </button>
+
+    <div class="main-content" id="mainContent">
+        <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <h1>📱 Números de WhatsApp</h1>
+                    <p class="subtitle">Gestiona la rotación de números para distribuir leads</p>
+                </div>
+                <div class="landing-selector">
+                    <label for="landingSelect">Landing Page:</label>
+                    <select id="landingSelect" class="landing-select" onchange="switchLanding(this.value)">
+                        <option value="default">Cargando...</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <!-- INFO DE ROTACIÓN -->
+        <section class="info-section">
+            <div class="info-card">
+                <h3>ℹ️ ¿Cómo funciona la rotación?</h3>
+                <p>Los números rotan automáticamente con cada click en el botón de WhatsApp:</p>
+                <ul>
+                    <li><strong>Round-robin:</strong> Los leads se distribuyen equitativamente entre todos los números</li>
+                    <li><strong>Hasta 10 números:</strong> Puedes agregar hasta 10 números por landing</li>
+                    <li><strong>Automático:</strong> No necesitas hacer nada, la rotación es transparente</li>
+                    <li><strong>Por landing:</strong> Cada landing tiene su propia rotación independiente</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- NÚMERO POR DEFECTO -->
+        <% if (defaultNumber) { %>
+        <section class="default-number-section">
+            <div class="section-header">
+                <h2>📱 Número Actual (Por Defecto)</h2>
+            </div>
+            <div class="default-number-card">
+                <div class="number-header">
+                    <div class="number-info">
+                        <span class="number-badge">🏠</span>
+                        <h3 class="number-label">Número Principal</h3>
+                    </div>
+                    <div class="number-actions">
+                        <button onclick="openEditDefaultNumberModal()" class="btn-icon" title="Editar número principal" style="background: #3b82f6; color: white; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer;">
+                            ✏️ Editar
+                        </button>
+                        <div class="status-badge status-active">
+                            ✅ Activo
+                        </div>
+                    </div>
+                </div>
+                <div class="number-content">
+                    <div class="number-display">
+                        <span class="number-value" id="defaultNumberDisplay"><%= defaultNumber %></span>
+                    </div>
+                    <div class="default-info">
+                        <p><strong>Este es tu número por defecto.</strong></p>
+                        <% if (numbers.length === 0) { %>
+                        <p>Se usa automáticamente cuando no hay números de rotación configurados.</p>
+                        <% } else { %>
+                        <p>Los números de rotación (abajo) se usan en vez de este cuando están configurados.</p>
+                        <% } %>
+                        <p style="margin-top: 10px; color: #f59e0b; font-size: 14px;">💡 <strong>Tip:</strong> Edítalo rápidamente en caso de caídas o bloqueos del número principal.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <% } %>
+
+        <!-- LISTA DE NÚMEROS DE ROTACIÓN -->
+        <section class="numbers-section">
+            <div class="section-header">
+                <h2>🔄 Números de Rotación (<span id="numberCount"><%= numbers.length %></span>/10)</h2>
+                <button onclick="openAddNumberModal()" class="btn btn-primary" id="addNumberBtn">
+                    + Agregar Número
+                </button>
+            </div>
+
+            <div class="numbers-grid" id="numbersGrid">
+                <% if (numbers.length === 0) { %>
+                    <div class="empty-state">
+                        <p>No hay números de rotación configurados</p>
+                        <p class="subtitle">Agrega números aquí para distribuir leads entre varios WhatsApp</p>
+                        <button onclick="openAddNumberModal()" class="btn btn-primary">+ Agregar Número</button>
+                    </div>
+                <% } else {
+                    numbers.forEach((number, index) => { %>
+                    <div class="number-card" data-id="<%= number.id %>">
+                        <div class="number-header">
+                            <div class="number-info">
+                                <span class="number-badge">#<%= index + 1 %></span>
+                                <h3 class="number-label"><%= number.label || 'Sin nombre' %></h3>
+                            </div>
+                            <div class="number-actions">
+                                <button onclick="editNumber('<%= number.id %>', '<%= number.number %>', '<%= number.label %>')" class="btn-icon" title="Editar">
+                                    ✏️
+                                </button>
+                                <button onclick="deleteNumber('<%= number.id %>')" class="btn-icon" title="Eliminar">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                        <div class="number-content">
+                            <div class="number-display">
+                                <span class="number-value"><%= number.number %></span>
+                            </div>
+                            <div class="number-meta">
+                                <span class="meta-label">Agregado:</span>
+                                <span class="meta-value"><%= new Date(number.createdAt).toLocaleDateString('es-AR') %></span>
+                            </div>
+                        </div>
+                    </div>
+                <% }); } %>
+            </div>
+        </section>
+
+        <!-- MODAL AGREGAR NÚMERO -->
+        <div id="addNumberModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>➕ Agregar Número de WhatsApp</h3>
+                    <span class="close" onclick="closeAddNumberModal()">&times;</span>
+                </div>
+                <form id="addNumberForm" class="modal-form">
+                    <div class="form-group">
+                        <label for="numberLabel">Nombre/Etiqueta:</label>
+                        <input type="text" id="numberLabel" name="label" placeholder="Ej: Vendedor 1, Soporte, etc.">
+                        <small>Opcional - Para identificar el número fácilmente</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="numberValue">Número de WhatsApp:</label>
+                        <input type="text" id="numberValue" name="number" required placeholder="Ej: 5491112345678">
+                        <small>Formato: Código de país + Área + Número (sin espacios ni símbolos)</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" onclick="closeAddNumberModal()" class="btn btn-secondary">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Agregar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL EDITAR NÚMERO -->
+        <div id="editNumberModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>✏️ Editar Número de WhatsApp</h3>
+                    <span class="close" onclick="closeEditNumberModal()">&times;</span>
+                </div>
+                <form id="editNumberForm" class="modal-form">
+                    <input type="hidden" id="editNumberId" name="id">
+                    <div class="form-group">
+                        <label for="editNumberLabel">Nombre/Etiqueta:</label>
+                        <input type="text" id="editNumberLabel" name="label" placeholder="Ej: Vendedor 1, Soporte, etc.">
+                        <small>Opcional - Para identificar el número fácilmente</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="editNumberValue">Número de WhatsApp:</label>
+                        <input type="text" id="editNumberValue" name="number" required placeholder="Ej: 5491112345678">
+                        <small>Formato: Código de país + Área + Número (sin espacios ni símbolos)</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" onclick="closeEditNumberModal()" class="btn btn-secondary">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL EDITAR NÚMERO POR DEFECTO -->
+        <div id="editDefaultNumberModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🏠 Editar Número Principal</h3>
+                    <span class="close" onclick="closeEditDefaultNumberModal()">&times;</span>
+                </div>
+                <form id="editDefaultNumberForm" class="modal-form">
+                    <div class="alert-info" style="background: #fef3c7; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                        <p style="margin: 0; color: #92400e;">⚠️ <strong>Importante:</strong> Este número se usa en todas las landings que no tienen rotación configurada.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="defaultNumberValue">Número Principal de WhatsApp:</label>
+                        <input type="text" id="defaultNumberValue" name="number" value="<%= defaultNumber %>" required placeholder="Ej: 5491112345678">
+                        <small>Formato: Código de país + Área + Número (sin espacios ni símbolos)</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" onclick="closeEditDefaultNumberModal()" class="btn btn-secondary">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">💾 Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Obtener el landing actual del servidor
+        const currentLandingId = '<%= currentLandingId %>';
+
+        // Load landings dynamically
+        async function loadLandingSelector() {
+            try {
+                const response = await fetch('/api/landings');
+                const data = await response.json();
+
+                if (data.success && data.landings) {
+                    const select = document.getElementById('landingSelect');
+                    select.innerHTML = '';
+
+                    data.landings.forEach(landing => {
+                        const option = document.createElement('option');
+                        option.value = landing.id;
+                        option.textContent = landing.name;
+                        if (landing.id === currentLandingId) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading landings:', error);
+            }
+        }
+
+        // Call on page load
+        loadLandingSelector();
+
+        // Función para cambiar de landing
+        function switchLanding(landingId) {
+            fetch('/api/switch-landing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ landingId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error al cambiar de landing');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al cambiar de landing');
+            });
+        }
+
+        // FUNCIONES PARA SIDEBAR
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const floatingBtn = document.getElementById('sidebarFloatingBtn');
+
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+
+            if (sidebar.classList.contains('collapsed')) {
+                floatingBtn.style.display = 'flex';
+            } else {
+                floatingBtn.style.display = 'none';
+            }
+        }
+
+        // FUNCIONES PARA MODAL AGREGAR
+        function openAddNumberModal() {
+            const numberCount = parseInt(document.getElementById('numberCount').textContent);
+            if (numberCount >= 10) {
+                alert('Has alcanzado el límite de 10 números de WhatsApp');
+                return;
+            }
+            document.getElementById('addNumberModal').style.display = 'flex';
+        }
+
+        function closeAddNumberModal() {
+            document.getElementById('addNumberModal').style.display = 'none';
+            document.getElementById('addNumberForm').reset();
+        }
+
+        // FUNCIONES PARA MODAL EDITAR
+        function openEditNumberModal() {
+            document.getElementById('editNumberModal').style.display = 'flex';
+        }
+
+        function closeEditNumberModal() {
+            document.getElementById('editNumberModal').style.display = 'none';
+            document.getElementById('editNumberForm').reset();
+        }
+
+        function editNumber(id, number, label) {
+            document.getElementById('editNumberId').value = id;
+            document.getElementById('editNumberValue').value = number;
+            document.getElementById('editNumberLabel').value = label;
+            openEditNumberModal();
+        }
+
+        // FUNCIONES PARA MODAL EDITAR NÚMERO POR DEFECTO
+        function openEditDefaultNumberModal() {
+            document.getElementById('editDefaultNumberModal').style.display = 'flex';
+        }
+
+        function closeEditDefaultNumberModal() {
+            document.getElementById('editDefaultNumberModal').style.display = 'none';
+            document.getElementById('editDefaultNumberForm').reset();
+        }
+
+        // Cerrar modales al hacer click fuera
+        window.onclick = function(event) {
+            const addModal = document.getElementById('addNumberModal');
+            const editModal = document.getElementById('editNumberModal');
+            const editDefaultModal = document.getElementById('editDefaultNumberModal');
+
+            if (event.target === addModal) {
+                closeAddNumberModal();
+            }
+            if (event.target === editModal) {
+                closeEditNumberModal();
+            }
+            if (event.target === editDefaultModal) {
+                closeEditDefaultNumberModal();
+            }
+        };
+
+        // Manejar envío de formulario AGREGAR
+        document.getElementById('addNumberForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const number = formData.get('number').trim();
+            const label = formData.get('label').trim();
+
+            try {
+                const response = await fetch('/api/whatsapp-numbers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number, label })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Número agregado correctamente!');
+                    closeAddNumberModal();
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al agregar el número');
+            }
+        });
+
+        // Manejar envío de formulario EDITAR
+        document.getElementById('editNumberForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const id = formData.get('id');
+            const number = formData.get('number').trim();
+            const label = formData.get('label').trim();
+
+            try {
+                const response = await fetch(`/api/whatsapp-numbers/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number, label })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Número actualizado correctamente!');
+                    closeEditNumberModal();
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al actualizar el número');
+            }
+        });
+
+        // Manejar envío de formulario EDITAR NÚMERO POR DEFECTO
+        document.getElementById('editDefaultNumberForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const number = formData.get('number').trim();
+
+            if (!number) {
+                alert('Por favor ingresa un número válido');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/default-whatsapp', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('✅ Número principal actualizado correctamente!');
+                    closeEditDefaultNumberModal();
+                    // Actualizar el display sin recargar
+                    document.getElementById('defaultNumberDisplay').textContent = number;
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al actualizar el número principal');
+            }
+        });
+
+        // Función para eliminar número
+        async function deleteNumber(id) {
+            if (!confirm('¿Estás seguro de eliminar este número?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/whatsapp-numbers/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Número eliminado correctamente!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al eliminar el número');
+            }
+        }
+
+        // Actualizar botón de agregar según cantidad
+        function updateAddButton() {
+            const numberCount = parseInt(document.getElementById('numberCount').textContent);
+            const addBtn = document.getElementById('addNumberBtn');
+
+            if (numberCount >= 10) {
+                addBtn.disabled = true;
+                addBtn.textContent = 'Límite Alcanzado (10/10)';
+                addBtn.style.opacity = '0.5';
+            }
+        }
+
+        updateAddButton();
+    </script>
+</body>
+</html>

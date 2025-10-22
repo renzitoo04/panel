@@ -1,23 +1,31 @@
 {
-  "name": "landing_nicho_black",
+  "name": "facebook-tracking-panel",
   "version": "1.0.0",
-  "description": "Landing page para casino con integración de API de Conversiones de Facebook",
-  "main": "index.js",
+  "description": "Panel CRM para tracking de conversiones con Facebook",
+  "main": "server.js",
   "scripts": {
-    "start": "vercel dev",
-    "build": "echo 'No build step required'",
-    "test:fb": "curl -X POST http://localhost:3000/api/test-facebook-event -H \"Content-Type: application/json\"",
-    "test:meta": "curl -X POST http://localhost:3000/api/test-conversion-api -H \"Content-Type: application/json\" -d '{\"email\":\"test@example.com\"}'",
-    "test-conversion": "echo \"Asegúrate de que el servidor esté ejecutándose con 'npm start' en otra terminal antes de ejecutar este comando\" && curl -X POST http://localhost:3000/api/test-conversion-api -H \"Content-Type: application/json\" -d '{\"event_name\":\"TestEvent\",\"email\":\"test@example.com\",\"custom_data\":{\"value\":49.99,\"currency\":\"USD\"}}'",
-    "test-direct": "node ./scripts/test-facebook-api.js",
-    "test-lead": "node ./scripts/test-facebook-lead.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
+  "keywords": [
+    "facebook",
+    "conversion",
+    "tracking",
+    "crm"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "axios": "^1.9.0",
-    "dotenv": "^16.5.0",
-    "node-fetch": "^2.6.7"
+    "axios": "^1.6.0",
+    "bcryptjs": "^3.0.2",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "express-session": "^1.18.2"
   },
   "devDependencies": {
-    "vercel": "^28.0.0"
+    "nodemon": "^3.0.1"
   }
 }
