@@ -1137,11 +1137,19 @@ app.post('/api/switch-landing', async (req, res) => {
 
 // Obtener todas las landings
 app.get('/api/landings', async (req, res) => {
-    const landings = await readLandings();
-    res.json({
-        success: true,
-        landings: Object.values(landings)
-    });
+    try {
+        const landings = await getLandingSettings();
+        res.json({
+            success: true,
+            landings: Object.values(landings)
+        });
+    } catch (error) {
+        console.error('Error obteniendo landings:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error al obtener las landings'
+        });
+    }
 });
 
 // PANEL: Notas y Tareas (persistencia en Supabase)
@@ -1193,61 +1201,60 @@ app.post('/api/panel/tasks', async (req, res) => {
 
 // Crear nueva landing
 app.post('/api/landings', async (req, res) => {
-    const { name, pixelId, accessToken } = req.body;
-
-    // Validación
-    if (!name || !pixelId || !accessToken) {
-        return res.status(400).json({
-            success: false,
-            error: 'Nombre, Pixel ID y Access Token son requeridos'
-        });
-    }
-
-    // Generar ID único (slug del nombre)
-    const id = name.toLowerCase()
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_|_$/g, '');
-
-    const landings = await readLandings();
-
-    // Verificar que no existe
-    if (landings[id]) {
-        return res.status(400).json({
-            success: false,
-            error: 'Ya existe una landing con ese nombre'
-        });
-    }
-
-    // Crear nueva landing
-    landings[id] = {
-        id,
-        name,
-        pixelId,
-        accessToken,
-        active: true,
-        createdAt: new Date().toISOString()
-    };
-
-    // Intentar persistir en archivo local
-    const saved = await writeLandings(landings);
-
-    // Intentar persistir también en Supabase (tabla `settien`) — no bloqueante
     try {
-        await upsertLandingSettings(id, pixelId, accessToken, name, true);
-        console.log('✅ Landing guardada también en Supabase settien:', id);
-    } catch (err) {
-        console.warn('⚠️ No se pudo guardar landing en Supabase:', err.message || err);
-    }
+        const { name, pixelId, accessToken } = req.body;
 
-    if (saved) {
+        // Validación
+        if (!name || !pixelId || !accessToken) {
+            return res.status(400).json({
+                success: false,
+                error: 'Nombre, Pixel ID y Access Token son requeridos'
+            });
+        }
+
+        // Generar ID único (slug del nombre)
+        const id = name.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_|_$/g, '');
+
+        // Verificar que no existe
+        const existingLanding = await getLandingSettings(id);
+        if (existingLanding) {
+            return res.status(400).json({
+                success: false,
+                error: 'Ya existe una landing con ese nombre'
+            });
+        }
+
+        // Crear nueva landing en Supabase
+        const savedLanding = await upsertLandingSettings(
+            id,
+            pixelId,
+            accessToken,
+            name,
+            true, // active por defecto
+            '', // defaultWhatsAppNumber vacío
+            [] // whatsappNumbers vacío
+        );
+
         res.json({
             success: true,
-            landing: landings[id]
+            landing: {
+                id: savedLanding.landing_id,
+                name: savedLanding.name,
+                pixelId: savedLanding.pixel_id,
+                accessToken: savedLanding.access_token,
+                active: savedLanding.active,
+                defaultWhatsAppNumber: savedLanding.default_whatsapp_number || '',
+                whatsappNumbers: savedLanding.whatsapp_numbers || [],
+                createdAt: savedLanding.created_at
+            }
         });
-    } else {
+    } catch (error) {
+        console.error('Error creando landing:', error);
         res.status(500).json({
             success: false,
-            error: 'Error al guardar la landing (archivo)'
+            error: error.message || 'Error al crear la landing'
         });
     }
 });
@@ -1257,94 +1264,91 @@ app.put('/api/landings/:id', async (req, res) => {
     const { id } = req.params;
     const { name, pixelId, accessToken, active } = req.body;
 
-    const landings = await readLandings();
-
-    if (!landings[id]) {
-        return res.status(404).json({
-            success: false,
-            error: 'Landing no encontrado'
-        });
-    }
-
-    // No permitir editar la landing default
-    if (id === 'default') {
-        return res.status(403).json({
-            success: false,
-            error: 'No se puede modificar la landing principal desde esta interfaz'
-        });
-    }
-
-    // Actualizar campos
-    if (name) landings[id].name = name;
-    if (pixelId) landings[id].pixelId = pixelId;
-    if (accessToken) landings[id].accessToken = accessToken;
-    if (typeof active !== 'undefined') landings[id].active = active;
-
-    const saved = await writeLandings(landings);
-
-    // Intentar actualizar settings en Supabase
     try {
-        await upsertLandingSettings(id, landings[id].pixelId, landings[id].accessToken, landings[id].name, landings[id].active);
-        console.log('✅ Landing actualizada en Supabase settien:', id);
-    } catch (err) {
-        console.warn('⚠️ No se pudo actualizar landing en Supabase:', err.message || err);
-    }
+        // Obtener landing existente
+        const landing = await getLandingSettings(id);
+        
+        if (!landing) {
+            return res.status(404).json({
+                success: false,
+                error: 'Landing no encontrado'
+            });
+        }
 
-    if (saved) {
+        // No permitir editar la landing default desde esta interfaz
+        if (id === 'default') {
+            return res.status(403).json({
+                success: false,
+                error: 'No se puede modificar la landing principal desde esta interfaz'
+            });
+        }
+
+        // Actualizar solo los campos proporcionados
+        const updatedLanding = await upsertLandingSettings(
+            id,
+            pixelId || landing.pixelId,
+            accessToken || landing.accessToken,
+            name || landing.name,
+            typeof active !== 'undefined' ? active : landing.active,
+            landing.defaultWhatsAppNumber || '',
+            landing.whatsappNumbers || []
+        );
+
         res.json({
             success: true,
-            landing: landings[id]
+            landing: {
+                id: updatedLanding.landing_id,
+                name: updatedLanding.name,
+                pixelId: updatedLanding.pixel_id,
+                accessToken: updatedLanding.access_token,
+                active: updatedLanding.active,
+                defaultWhatsAppNumber: updatedLanding.default_whatsapp_number || '',
+                whatsappNumbers: updatedLanding.whatsapp_numbers || []
+            }
         });
-    } else {
+    } catch (error) {
+        console.error('Error actualizando landing:', error);
         res.status(500).json({
             success: false,
-            error: 'Error al actualizar la landing (archivo)'
+            error: error.message || 'Error al actualizar la landing'
         });
     }
 });
 
 // Eliminar landing
 app.delete('/api/landings/:id', async (req, res) => {
-    const { id } = req.params;
-
-    const landings = await readLandings();
-
-    if (!landings[id]) {
-        return res.status(404).json({
-            success: false,
-            error: 'Landing no encontrado'
-        });
-    }
-
-    // No permitir eliminar la landing default
-    if (id === 'default') {
-        return res.status(403).json({
-            success: false,
-            error: 'No se puede eliminar la landing principal'
-        });
-    }
-
-    delete landings[id];
-
-    const saved = await writeLandings(landings);
-
-    // Intentar borrar settings en Supabase
     try {
-        await deleteLandingSettings(id);
-        console.log('✅ Landing settings borrada en Supabase settien:', id);
-    } catch (err) {
-        console.warn('⚠️ No se pudo borrar landing en Supabase:', err.message || err);
-    }
+        const { id } = req.params;
 
-    if (saved) {
+        // No permitir eliminar la landing default
+        if (id === 'default') {
+            return res.status(403).json({
+                success: false,
+                error: 'No se puede eliminar la landing principal'
+            });
+        }
+
+        // Verificar que existe
+        const landing = await getLandingSettings(id);
+        if (!landing) {
+            return res.status(404).json({
+                success: false,
+                error: 'Landing no encontrado'
+            });
+        }
+
+        // Eliminar de Supabase
+        await deleteLandingSettings(id);
+
         res.json({
             success: true,
             message: 'Landing eliminado correctamente'
         });
-    } else {
+    } catch (error) {
+        console.error('Error eliminando landing:', error);
         res.status(500).json({
             success: false,
-            error: 'Error al eliminar la landing (archivo)'
+            error: error.message || 'Error al eliminar la landing'
         });
     }
 });
