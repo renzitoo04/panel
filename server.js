@@ -1,12 +1,18 @@
-require('dotenv').config();
-const express = require('express');
-const session = require('express-session');
-const bcrypt = require('bcryptjs');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const fs = require('fs').promises;
-const path = require('path');
+import 'dotenv/config';
+import express from 'express';
+import session from 'express-session';
+import bcrypt from 'bcryptjs';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import axios from 'axios';
+
+// ES modules fix for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
