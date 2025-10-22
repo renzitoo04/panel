@@ -1,0 +1,22 @@
+{
+  "default": {
+    "id": "default",
+    "name": "Landing Argenbet (Principal)",
+    "pixelId": "1126842699347074",
+    "accessToken": "EAAN3I4m121MBPgQtawshrrQW8fFZCzDFrZASIZB8aZBMK5MyZCFusZAKZAHA6kqwMMcZBdZAvHYCYjvojCC9JOQe7fuKvEdIOSm2CiUAtWmtVZCWXknlxO3Cr6yJ0HFmEDehZCyMIIlmOC72tEUkG384p5jOEGmkK7GSsAIk7ZAI7IVNBZCrUZAX2ncMOZAxCW3ZBMA7XQZDZD",
+    "active": true,
+    "createdAt": "2025-10-22T00:00:00.000Z",
+    "defaultWhatsAppNumber": "5491171071767",
+    "whatsappNumbers": []
+  },
+  "landing_ganamos": {
+    "id": "landing_ganamos",
+    "name": "Landing Ganamos",
+    "pixelId": "122233456677578",
+    "accessToken": "jfnqwnfihnfiqneedmownmofng",
+    "active": true,
+    "createdAt": "2025-10-22T03:02:02.844Z",
+    "defaultWhatsAppNumber": "",
+    "whatsappNumbers": []
+  }
+}

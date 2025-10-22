@@ -1,0 +1,23 @@
+{
+  "name": "landing_nicho_black",
+  "version": "1.0.0",
+  "description": "Landing page para casino con integración de API de Conversiones de Facebook",
+  "main": "index.js",
+  "scripts": {
+    "start": "vercel dev",
+    "build": "echo 'No build step required'",
+    "test:fb": "curl -X POST http://localhost:3000/api/test-facebook-event -H \"Content-Type: application/json\"",
+    "test:meta": "curl -X POST http://localhost:3000/api/test-conversion-api -H \"Content-Type: application/json\" -d '{\"email\":\"test@example.com\"}'",
+    "test-conversion": "echo \"Asegúrate de que el servidor esté ejecutándose con 'npm start' en otra terminal antes de ejecutar este comando\" && curl -X POST http://localhost:3000/api/test-conversion-api -H \"Content-Type: application/json\" -d '{\"event_name\":\"TestEvent\",\"email\":\"test@example.com\",\"custom_data\":{\"value\":49.99,\"currency\":\"USD\"}}'",
+    "test-direct": "node ./scripts/test-facebook-api.js",
+    "test-lead": "node ./scripts/test-facebook-lead.js"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "dotenv": "^16.5.0",
+    "node-fetch": "^2.6.7"
+  },
+  "devDependencies": {
+    "vercel": "^28.0.0"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(~/ngrok http:*)",
+      "Bash(lt:*)",
+      "Bash(vercel ls:*)",
+      "Bash(cat:*)",
+      "Bash(tar:*)",
+      "Bash(~/ngrok version:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nActualizar URL del backend a LocalTunnel actual\n\n- Cambiar backend de ready-sides-sink.loca.lt a cuddly-toes-knock.loca.lt\n- Esto permite que el tracking funcione desde dispositivos externos\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)",
+      "Bash(git init:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Read(//mnt/c/Users/NoxiePC/Desktop/**)",
+      "Bash(npx vercel --version)",
+      "Bash(vercel:*)",
+      "Bash(node:*)",
+      "Bash(tail:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "Bash(kill:*)",
+      "Bash(python3:*)",
+      "Bash(npx localtunnel --port 3000)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(awk:*)",
+      "Bash(cd /mnt/c/Users/NoxiePC/Desktop/Landing super pro( argenbet)/panel)",
+      "Bash(cd:*)",
+      "Bash(find:*)",
+      "Bash(head:*)",
+      "Bash(xargs kill:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

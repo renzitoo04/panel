@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Chart.js</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        canvas {
+            background: #333;
+            border-radius: 8px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test de Chart.js</h1>
+        <p id="status">Cargando...</p>
+        <canvas id="testChart" width="400" height="200"></canvas>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const status = document.getElementById('status');
+
+            if (typeof Chart === 'undefined') {
+                status.textContent = '❌ ERROR: Chart.js NO está cargado';
+                status.style.color = 'red';
+                return;
+            }
+
+            status.textContent = '✅ Chart.js cargado correctamente';
+            status.style.color = 'lime';
+
+            const ctx = document.getElementById('testChart');
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['21/10', '22/10'],
+                    datasets: [{
+                        label: 'Clicks',
+                        data: [10, 15],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Gráfico de Prueba',
+                            color: 'white'
+                        },
+                        legend: {
+                            labels: {
+                                color: 'white'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        x: {
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+
+            console.log('✅ Gráfico de prueba creado exitosamente');
+        });
+    </script>
+</body>
+</html>

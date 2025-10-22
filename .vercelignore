@@ -1,0 +1,24 @@
+# Excluir carpeta del panel (no se debe desplegar)
+panel/
+
+# Excluir backup
+BACKUP-*/
+
+# Excluir archivos de documentación
+*.md
+CAPTURA-IP-EXPLICACION.md
+COMO-FUNCIONA-FACEBOOK-ACCESS-TOKEN.md
+COMO-OBTENER-TOKEN-PERMANENTE.md
+EXPLICACION-EVENT-ID.md
+README-SISTEMA-COMPLETO.md
+SOLUCION-FINAL.md
+VERIFICAR-TOKEN-FUNCIONA.md
+
+# Excluir servidor de Node.js para la landing
+server-landing.js
+node_modules/
+
+# Excluir archivos de sistema
+.DS_Store
+Thumbs.db
+*.log

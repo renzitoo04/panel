@@ -1,0 +1,123 @@
+╔═══════════════════════════════════════════════════════════════╗
+║         BACKUP PANEL CRM - SISTEMA DE TRACKING               ║
+║              Facebook Conversion API Integration              ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📅 Fecha de backup: 2025-10-21
+🔧 Versión: 1.0
+📦 Contenido: Sistema completo listo para usar
+
+═══════════════════════════════════════════════════════════════
+
+📁 CONTENIDO DEL BACKUP:
+
+panel/
+├── server.js              → Servidor principal Node.js
+├── package.json          → Dependencias del proyecto
+├── .env.example          → Plantilla de configuración
+├── .gitignore           → Archivos a ignorar en Git
+├── data/                → Carpeta para base de datos JSON
+├── views/
+│   └── dashboard.ejs    → Panel CRM (HTML/JavaScript)
+└── public/
+    └── style.css        → Estilos del panel (tema oscuro)
+
+README-INSTALACION.md    → Documentación completa
+QUICK-START.md          → Guía rápida (5 minutos)
+
+═══════════════════════════════════════════════════════════════
+
+✨ CARACTERÍSTICAS INCLUIDAS:
+
+✅ Captura automática de eventos (pageview, clicks)
+✅ Captura automática de IP (mejora match rate +30%)
+✅ Captura de User Agent del navegador
+✅ Panel CRM para gestión de conversiones
+✅ Registro manual de mensajes (evento "Contact")
+✅ Registro manual de compras (evento "Purchase")
+✅ Logs detallados de Facebook API
+✅ Estadísticas de conversión en tiempo real
+✅ Exportación de eventos a Excel (CSV)
+✅ Filtros por fecha (hoy, ayer, semana, mes, personalizado)
+✅ Gráficos de evolución de conversiones
+✅ Zona horaria: Argentina (configurable)
+✅ Diseño moderno con tema oscuro
+✅ Sistema de búsqueda de eventos
+✅ Auto-refresh cada 30 segundos
+
+═══════════════════════════════════════════════════════════════
+
+🚀 INICIO RÁPIDO:
+
+1. Lee el archivo: QUICK-START.md
+2. Copia la carpeta "panel" a tu proyecto
+3. Ejecuta: npm install
+4. Configura el archivo .env con tus credenciales
+5. Ejecuta: node server.js
+6. Abre: http://localhost:3000
+
+═══════════════════════════════════════════════════════════════
+
+📖 DOCUMENTACIÓN:
+
+→ QUICK-START.md         : Guía rápida (5 minutos)
+→ README-INSTALACION.md  : Documentación completa
+                          - Instalación detallada
+                          - Integración con landing page
+                          - API endpoints
+                          - Configuración avanzada
+                          - Troubleshooting
+                          - Despliegue en producción
+
+═══════════════════════════════════════════════════════════════
+
+🔐 SEGURIDAD:
+
+⚠️  NO SUBAS EL ARCHIVO .env A GIT (contiene credenciales)
+✅  Incluye .gitignore configurado
+✅  Las IPs se capturan del lado del servidor
+✅  Variables sensibles en archivos de entorno
+✅  Logs de auditoría completos
+
+═══════════════════════════════════════════════════════════════
+
+💡 REQUISITOS:
+
+• Node.js v14 o superior
+• NPM (viene con Node.js)
+• Facebook Pixel ID
+• Facebook Access Token (System User Token recomendado)
+
+═══════════════════════════════════════════════════════════════
+
+🎯 USO EN OTRAS LANDING PAGES:
+
+Este backup está listo para ser usado en CUALQUIER landing page.
+Solo necesitas:
+
+1. Copiar la carpeta "panel" a tu nuevo proyecto
+2. Configurar tus credenciales de Facebook en .env
+3. Integrar el código de tracking en tu landing
+   (ver README-INSTALACION.md sección "Integración")
+
+═══════════════════════════════════════════════════════════════
+
+📊 BENEFICIOS DEL SISTEMA:
+
+• Match Rate: ~30% → ~50-60% (gracias a captura de IP)
+• Geolocalización de conversiones
+• Mejor atribución a anuncios de Facebook
+• Tracking preciso de eventos
+• Deduplicación automática (Pixel + Conversion API)
+• Estadísticas en tiempo real
+
+═══════════════════════════════════════════════════════════════
+
+¿LISTO PARA EMPEZAR?
+
+→ Principiantes: Lee QUICK-START.md
+→ Usuarios avanzados: Lee README-INSTALACION.md
+
+═══════════════════════════════════════════════════════════════
+
+¡Éxito con tus campañas! 🚀
